@@ -1,9 +1,10 @@
 use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct AmortizedDatum {
-    payment_number: i32,
-    payment_date: DateTime<Utc>,
+    payment_number: i16,
+    payment_date: String,
     payment: f32,
     principle: f32,
     interest: f32,
@@ -31,14 +32,14 @@ pub fn amortize(
     let mut balance = loan_amount;
     let mut total_interest: f32 = 0.0;
 
-    let mut count = 1;
+    let mut count: i16 = 1;
     while balance > 0.0 {
         let payment = rounded_monthly_payment;
         let interest = monthly_interest_rate * balance;
 
         let mut principle = payment - interest;
 
-        if principle > balance {
+        if principle > balance || count >= terms_in_months {
             principle = balance
         }
 
@@ -47,7 +48,7 @@ pub fn amortize(
 
         amortized.push(AmortizedDatum {
             payment_number: count,
-            payment_date: payment_date,
+            payment_date: payment_date.to_string(),
             payment: round(payment),
             principle: round(principle),
             interest: round(interest),
@@ -75,6 +76,7 @@ mod tests {
         let amortized_table: Vec<AmortizedDatum> = amortize(300000.0, 360, 5.0);
         let first_entry: &AmortizedDatum = &amortized_table[0];
 
+        assert_eq!(first_entry.payment_number, 1);
         assert_eq!(first_entry.payment, 1610.46);
         assert_eq!(first_entry.principle, 360.46);
         assert_eq!(first_entry.interest, 1250.01);
@@ -85,12 +87,13 @@ mod tests {
     #[test]
     fn last_amortized_entry_is_correct() {
         let amortized_table: Vec<AmortizedDatum> = amortize(300000.0, 360, 5.0);
-        let last_entry: &AmortizedDatum = &amortized_table[amortized_table.len() - 1];
+        let last_entry = amortized_table.last().unwrap();
 
+        assert_eq!(last_entry.payment_number, 360);
         assert_eq!(last_entry.payment, 1610.46);
-        assert_eq!(last_entry.principle, 3.81);
-        assert_eq!(last_entry.interest, 0.02);
-        assert_eq!(last_entry.total_interest, 279769.75);
+        assert_eq!(last_entry.principle, 1607.57);
+        assert_eq!(last_entry.interest, 6.70);
+        assert_eq!(last_entry.total_interest, 279769.72);
         assert_eq!(last_entry.balance, 0.0);
     }
 }
